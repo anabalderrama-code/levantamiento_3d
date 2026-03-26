@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Levantamiento 3D – UDEM</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#111827;overflow:hidden;font-family:'Courier New',monospace;}
+#c{display:block;width:100vw;height:100vh;}
+#ui{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:12px 18px;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(0,0,0,0.8),transparent);}
+.title h1{font-size:16px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#00e5ff;}
+.title p{font-size:9px;color:#546e7a;letter-spacing:.1em;margin-top:2px;}
+.team{text-align:right;font-size:9px;color:#607d8b;line-height:1.8;}
+.team strong{color:#ff6b35;display:block;}
+#btns{position:fixed;top:58px;left:18px;display:flex;flex-direction:column;gap:5px;}
+.btn{font-family:'Courier New',monospace;font-size:9px;letter-spacing:.07em;text-transform:uppercase;
+  background:rgba(5,12,22,0.9);border:1px solid #263040;color:#78909c;
+  padding:5px 10px;cursor:pointer;border-radius:2px;text-align:left;}
+.btn.on{border-color:#00e5ff;color:#00e5ff;}
+.btn.on-g{border-color:#69ff47;color:#69ff47;}
+.btn.on-r{border-color:#ff5252;color:#ff5252;}
+.btn.on-b{border-color:#448aff;color:#448aff;}
+.btn.on-o{border-color:#ff6d00;color:#ff6d00;}
+#leg{position:fixed;bottom:16px;left:16px;background:rgba(5,10,18,0.9);
+  border:1px solid #1e3040;border-radius:3px;padding:9px 13px;font-size:9px;color:#78909c;letter-spacing:.05em;}
+#leg h4{color:#00e5ff;font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;}
+.gbar{width:140px;height:9px;border-radius:2px;
+  background:linear-gradient(to right,#1a237e,#006064,#69f0ae,#ffea00,#ff5722);margin-bottom:3px;}
+.glbl{display:flex;justify-content:space-between;font-size:8px;margin-bottom:6px;}
+.lr{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+.lc{width:18px;height:2px;border-radius:1px;}
+#inf{position:fixed;bottom:16px;right:16px;background:rgba(5,10,18,0.9);
+  border:1px solid #1e3040;border-radius:3px;padding:9px 13px;font-size:9px;color:#78909c;min-width:150px;}
+#inf h4{color:#ff6d00;font-size:9px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;}
+.sr{display:flex;justify-content:space-between;gap:12px;margin-bottom:2px;}
+.sr span:last-child{color:#00e5ff;}
+#hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+  font-size:8px;color:#37474f;letter-spacing:.1em;text-transform:uppercase;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="title">
+    <h1>Levantamiento Topográfico 3D</h1>
+    <p>Materiales de Construcción · UDEM · B.N. +100.000 · Grid 3×3 · Espaciado 3.0 m</p>
+  </div>
+  <div class="team">
+    <strong>Asesor: Fco. José Guzmán G.</strong>
+    Paola Lorena Garza · Luciana Catalina Velázquez · Victoria Balderrama
+  </div>
+</div>
+<div id="btns">
+  <button class="btn on"  id="bT">▪ Superficie</button>
+  <button class="btn on-g" id="bC">▪ Curvas nivel</button>
+  <button class="btn on-r" id="bG">▪ Cuadrícula</button>
+  <button class="btn on-b" id="bD">▪ Diagonales</button>
+  <button class="btn on-o" id="bS">▪ Sección A–A'</button>
+  <button class="btn on"  id="bP">▪ Puntos cota</button>
+  <button class="btn on"  id="bR">⟳ Auto-rotar</button>
+  <button class="btn"     id="bX">↺ Reset</button>
+</div>
+<div id="leg">
+  <h4>Elevación</h4>
+  <div class="gbar"></div>
+  <div class="glbl"><span>99.988 m</span><span>100.058 m</span></div>
+  <div class="lr"><div class="lc" style="background:#69ff47;height:2px"></div><span>Curvas de nivel</span></div>
+  <div class="lr"><div class="lc" style="background:#ff5252"></div><span>Cuadrícula</span></div>
+  <div class="lr"><div class="lc" style="background:#448aff"></div><span>Diagonales</span></div>
+  <div class="lr"><div class="lc" style="background:#ff6d00;height:3px"></div><span>Sección A–A'</span></div>
+</div>
+<div id="inf">
+  <h4>Estadísticas</h4>
+  <div class="sr"><span>Mínima</span><span>99.988 m</span></div>
+  <div class="sr"><span>Máxima</span><span>100.058 m</span></div>
+  <div class="sr"><span>Diferencia</span><span>0.070 m</span></div>
+  <div class="sr"><span>Promedio</span><span>100.031 m</span></div>
+  <div class="sr"><span>Puntos</span><span>16</span></div>
+  <div class="sr"><span>Espaciado</span><span>3.000 m</span></div>
+</div>
+<div id="hint">Arrastrar: rotar · Scroll: zoom · Botones: capas</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── DATA ──────────────────────────────────────────────────
+var RAW = [
+  [100.006, 100.031, 100.042, 100.033],
+  [100.003, 100.055, 100.046, 100.032],
+  [99.999,  100.058, 100.037, 100.032],
+  [99.988,  100.028, 100.042, 100.044]
+];
+var NR=4, NC=4, SP=3.0;
+var ZMIN=99.988, ZMAX=100.058, ZMID=(99.988+100.058)/2;
+var ZE=70;   // vertical exaggeration
+var RES=60;  // mesh resolution
+var GW=(NC-1)*SP, GD=(NR-1)*SP;  // 9 x 9
+var HW=GW/2, HD=GD/2;            // 4.5 x 4.5
+
+function zy(z){ return (z-ZMID)*ZE; }
+
+function bilin(ri,ci){
+  var r = Math.min(ri*(NR-1)/(RES-1), NR-1-1e-6);
+  var c = Math.min(ci*(NC-1)/(RES-1), NC-1-1e-6);
+  var r0=Math.floor(r), r1=r0+1, c0=Math.floor(c), c1=c0+1;
+  var tr=r-r0, tc=c-c0;
+  return RAW[r0][c0]*(1-tr)*(1-tc) + RAW[r1][c0]*tr*(1-tc)
+       + RAW[r0][c1]*(1-tr)*tc     + RAW[r1][c1]*tr*tc;
+}
+
+// sample at world XZ
+function sampleW(wx,wz){
+  var cf=(wx+HW)/SP, rf=(wz+HD)/SP;
+  var r0=Math.max(0,Math.min(NR-1,Math.floor(rf)));
+  var r1=Math.max(0,Math.min(NR-1,r0+1));
+  var c0=Math.max(0,Math.min(NC-1,Math.floor(cf)));
+  var c1=Math.max(0,Math.min(NC-1,c0+1));
+  var tr=rf-Math.floor(rf), tc=cf-Math.floor(cf);
+  tr=Math.max(0,Math.min(1,tr)); tc=Math.max(0,Math.min(1,tc));
+  return RAW[r0][c0]*(1-tr)*(1-tc)+RAW[r1][c0]*tr*(1-tc)+RAW[r0][c1]*(1-tr)*tc+RAW[r1][c1]*tr*tc;
+}
+
+function elevCol(z){
+  var t=Math.max(0,Math.min(1,(z-ZMIN)/(ZMAX-ZMIN)));
+  var S=[[0,[26,35,126]],[0.3,[0,96,100]],[0.55,[105,240,174]],[0.75,[255,234,0]],[1,[255,87,34]]];
+  var r=S[0][1][0],g=S[0][1][1],b=S[0][1][2];
+  for(var i=0;i<S.length-1;i++){
+    if(t>=S[i][0]&&t<=S[i+1][0]){
+      var s=(t-S[i][0])/(S[i+1][0]-S[i][0]);
+      r=S[i][1][0]+(S[i+1][1][0]-S[i][1][0])*s;
+      g=S[i][1][1]+(S[i+1][1][1]-S[i][1][1])*s;
+      b=S[i][1][2]+(S[i+1][1][2]-S[i][1][2])*s;
+    }
+  }
+  return new THREE.Color(r/255,g/255,b/255);
+}
+
+// ── RENDERER ─────────────────────────────────────────────
+var renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0e1520);
+scene.fog=new THREE.Fog(0x0e1520,55,120);
+
+var camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.1,400);
+
+// ── TERRAIN ──────────────────────────────────────────────
+var tGeo=new THREE.PlaneGeometry(GW,GD,RES-1,RES-1);
+tGeo.rotateX(-Math.PI/2);
+var tPos=tGeo.attributes.position.array;
+var tCol=[];
+for(var ri=0;ri<RES;ri++){
+  for(var ci=0;ci<RES;ci++){
+    var idx=ri*RES+ci;
+    var z=bilin(ri,ci);
+    tPos[idx*3+1]=zy(z);
+    var col=elevCol(z);
+    tCol.push(col.r,col.g,col.b);
+  }
+}
+tGeo.setAttribute('color',new THREE.Float32BufferAttribute(tCol,3));
+tGeo.computeVertexNormals();
+var terrainMesh=new THREE.Mesh(tGeo,new THREE.MeshPhongMaterial({vertexColors:true,shininess:60,specular:new THREE.Color(0x223344)}));
+terrainMesh.receiveShadow=true;
+scene.add(terrainMesh);
+
+// ── RED GRID LINES ────────────────────────────────────────
+var gridGrp=new THREE.Group();
+var gMat=new THREE.LineBasicMaterial({color:0xff3333,transparent:true,opacity:0.75});
+// rows (constant Z in grid = constant world Z)
+for(var ri=0;ri<NR;ri++){
+  var pts=[];
+  for(var ci=0;ci<RES;ci++){
+    var frac=ci/(RES-1);
+    var wz=bilin(ri*(RES-1)/(NR-1), ci);
+    pts.push(new THREE.Vector3(frac*GW-HW, zy(wz)+0.05, ri*SP-HD));
+  }
+  gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),gMat));
+}
+// cols (constant C in grid = constant world X)
+for(var ci=0;ci<NC;ci++){
+  var pts=[];
+  for(var ri=0;ri<RES;ri++){
+    var frac=ri/(RES-1);
+    var wz=bilin(ri, ci*(RES-1)/(NC-1));
+    pts.push(new THREE.Vector3(ci*SP-HW, zy(wz)+0.05, frac*GD-HD));
+  }
+  gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),gMat));
+}
+scene.add(gridGrp);
+
+// ── BLUE DIAGONALS ────────────────────────────────────────
+var diagGrp=new THREE.Group();
+var dMat=new THREE.LineBasicMaterial({color:0x4488ff,transparent:true,opacity:0.6});
+var DSUB=32;
+for(var ri=0;ri<NR-1;ri++){
+  for(var ci=0;ci<NC-1;ci++){
+    // diagonal TL→BR
+    var p1=[];
+    for(var s=0;s<=DSUB;s++){
+      var t=s/DSUB;
+      var rr=ri+t, cc=ci+t;
+      var wz=bilin(rr*(RES-1)/(NR-1), cc*(RES-1)/(NC-1));
+      p1.push(new THREE.Vector3(cc*SP-HW, zy(wz)+0.07, rr*SP-HD));
+    }
+    diagGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(p1),dMat));
+    // diagonal TR→BL
+    var p2=[];
+    for(var s=0;s<=DSUB;s++){
+      var t=s/DSUB;
+      var rr=ri+t, cc=(ci+1)-t;
+      var wz=bilin(rr*(RES-1)/(NR-1), cc*(RES-1)/(NC-1));
+      p2.push(new THREE.Vector3(cc*SP-HW, zy(wz)+0.07, rr*SP-HD));
+    }
+    diagGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(p2),dMat));
+  }
+}
+scene.add(diagGrp);
+
+// ── GREEN CONTOUR LINES ───────────────────────────────────
+var conGrp=new THREE.Group();
+var cMat=new THREE.LineBasicMaterial({color:0x69ff47,transparent:true,opacity:0.9});
+var CLEVELS=[99.990,99.995,100.000,100.005,100.010,100.015,100.020,
+             100.025,100.030,100.035,100.040,100.045,100.050,100.055];
+var CSUB=50;
+CLEVELS.forEach(function(lv){
+  for(var ri=0;ri<CSUB-1;ri++){
+    for(var ci=0;ci<CSUB-1;ci++){
+      var x0=ci/CSUB*GW-HW, x1=(ci+1)/CSUB*GW-HW;
+      var z0=ri/CSUB*GD-HD, z1=(ri+1)/CSUB*GD-HD;
+      var v00=sampleW(x0,z0),v10=sampleW(x1,z0),v01=sampleW(x0,z1),v11=sampleW(x1,z1);
+      var corners=[
+        {x:x0,z:z0,v:v00},{x:x1,z:z0,v:v10},
+        {x:x1,z:z1,v:v11},{x:x0,z:z1,v:v01}
+      ];
+      var cross=[];
+      for(var i=0;i<4;i++){
+        var a=corners[i],b=corners[(i+1)%4];
+        if((a.v<lv&&b.v>=lv)||(b.v<lv&&a.v>=lv)){
+          var tt=(lv-a.v)/(b.v-a.v);
+          cross.push({x:a.x+(b.x-a.x)*tt, z:a.z+(b.z-a.z)*tt});
+        }
+      }
+      if(cross.length>=2){
+        var y0=zy(sampleW(cross[0].x,cross[0].z))+0.14;
+        var y1=zy(sampleW(cross[1].x,cross[1].z))+0.14;
+        var seg=[new THREE.Vector3(cross[0].x,y0,cross[0].z),
+                 new THREE.Vector3(cross[1].x,y1,cross[1].z)];
+        conGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(seg),cMat));
+      }
+    }
+  }
+});
+scene.add(conGrp);
+
+// ── ORANGE SECTION A–A' ───────────────────────────────────
+var secGrp=new THREE.Group();
+var sMat=new THREE.LineBasicMaterial({color:0xff6d00,transparent:true,opacity:0.95});
+var SEC_RI=1; // second row
+var spts=[];
+for(var ci=0;ci<RES;ci++){
+  var frac=ci/(RES-1);
+  var wz=bilin(SEC_RI*(RES-1)/(NR-1), ci);
+  spts.push(new THREE.Vector3(frac*GW-HW, zy(wz)+0.22, SEC_RI*SP-HD));
+}
+secGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(spts),sMat));
+// spike markers
+var spkMat=new THREE.LineBasicMaterial({color:0xff6d00});
+[[0,SEC_RI],[NC-1,SEC_RI]].forEach(function(rc){
+  var wx=rc[0]*SP-HW, wz2=rc[1]*SP-HD;
+  var elev=zy(RAW[rc[1]][rc[0]]);
+  var sp=[new THREE.Vector3(wx,elev+0.3,wz2),new THREE.Vector3(wx,elev+1.4,wz2)];
+  secGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(sp),spkMat));
+});
+scene.add(secGrp);
+
+// ── GRID POINTS (spheres + rings) ────────────────────────
+var ptsGrp=new THREE.Group();
+var sGeo=new THREE.SphereGeometry(0.09,10,10);
+var rGeo=new THREE.RingGeometry(0.18,0.24,20);
+rGeo.rotateX(-Math.PI/2);
+for(var ri=0;ri<NR;ri++){
+  for(var ci=0;ci<NC;ci++){
+    var z=RAW[ri][ci];
+    var col=elevCol(z);
+    var sp=new THREE.Mesh(sGeo,new THREE.MeshPhongMaterial({color:col,emissive:col.clone().multiplyScalar(0.5)}));
+    sp.position.set(ci*SP-HW, zy(z)+0.15, ri*SP-HD);
+    ptsGrp.add(sp);
+    var rng=new THREE.Mesh(rGeo,new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide,transparent:true,opacity:0.8}));
+    rng.position.set(ci*SP-HW, zy(z)+0.18, ri*SP-HD);
+    ptsGrp.add(rng);
+  }
+}
+scene.add(ptsGrp);
+
+// ── BASE SLAB ─────────────────────────────────────────────
+var baseY=zy(ZMIN)-0.5;
+var base=new THREE.Mesh(
+  new THREE.BoxGeometry(GW+2,0.25,GD+2),
+  new THREE.MeshPhongMaterial({color:0x090f1a,emissive:0x020609})
+);
+base.position.y=baseY-0.12;
+scene.add(base);
+
+// vertical corner lines
+var eMat=new THREE.LineBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.2});
+[[-HW,-HD],[-HW,HD],[HW,-HD],[HW,HD]].forEach(function(xz){
+  var ev=sampleW(xz[0],xz[1]);
+  var ep=[new THREE.Vector3(xz[0],zy(ev)+0.05,xz[1]),new THREE.Vector3(xz[0],baseY,xz[1])];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ep),eMat));
+});
+
+// ── LIGHTS ────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x102030,1.8));
+var sun=new THREE.DirectionalLight(0xfff5e0,2.2);
+sun.position.set(18,28,12); sun.castShadow=true; scene.add(sun);
+var fill=new THREE.DirectionalLight(0x0044ff,0.45);
+fill.position.set(-12,8,-10); scene.add(fill);
+var rim=new THREE.PointLight(0x00e5ff,0.7,35);
+rim.position.set(0,10,0); scene.add(rim);
+
+// ── ORBIT ─────────────────────────────────────────────────
+var drag=false, lx=0, ly=0, theta=-0.52, phi=0.92, radius=24;
+var autoRot=true;
+function updateCam(){
+  camera.position.set(
+    radius*Math.sin(phi)*Math.sin(theta),
+    radius*Math.cos(phi),
+    radius*Math.sin(phi)*Math.cos(theta)
+  );
+  camera.lookAt(0,0,0);
+}
+updateCam();
+
+var cv=document.getElementById('c');
+cv.addEventListener('mousedown',function(e){drag=true;lx=e.clientX;ly=e.clientY;autoRot=false;document.getElementById('bR').className='btn';});
+window.addEventListener('mouseup',function(){drag=false;});
+window.addEventListener('mousemove',function(e){
+  if(!drag)return;
+  theta-=(e.clientX-lx)*0.005;
+  phi=Math.max(0.08,Math.min(1.48,phi-(e.clientY-ly)*0.005));
+  lx=e.clientX;ly=e.clientY;updateCam();
+});
+cv.addEventListener('wheel',function(e){
+  radius=Math.max(5,Math.min(60,radius+e.deltaY*0.04));updateCam();
+},{passive:true});
+cv.addEventListener('touchstart',function(e){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoRot=false;},{passive:true});
+window.addEventListener('touchend',function(){drag=false;});
+window.addEventListener('touchmove',function(e){
+  if(!drag)return;
+  theta-=(e.touches[0].clientX-lx)*0.005;
+  phi=Math.max(0.08,Math.min(1.48,phi-(e.touches[0].clientY-ly)*0.005));
+  lx=e.touches[0].clientX;ly=e.touches[0].clientY;updateCam();
+},{passive:true});
+
+window.addEventListener('resize',function(){
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// ── BUTTON TOGGLES ────────────────────────────────────────
+function mkToggle(id,obj,cls){
+  var btn=document.getElementById(id);
+  btn.addEventListener('click',function(){
+    obj.visible=!obj.visible;
+    btn.className=obj.visible?'btn '+cls:'btn';
+  });
+}
+mkToggle('bT',terrainMesh,'on');
+mkToggle('bC',conGrp,'on-g');
+mkToggle('bG',gridGrp,'on-r');
+mkToggle('bD',diagGrp,'on-b');
+mkToggle('bS',secGrp,'on-o');
+mkToggle('bP',ptsGrp,'on');
+
+document.getElementById('bR').addEventListener('click',function(){
+  autoRot=!autoRot;this.className=autoRot?'btn on':'btn';
+});
+document.getElementById('bX').addEventListener('click',function(){
+  theta=-0.52;phi=0.92;radius=24;updateCam();
+});
+
+// ── RENDER LOOP ───────────────────────────────────────────
+(function loop(){
+  requestAnimationFrame(loop);
+  if(autoRot){theta+=0.003;updateCam();}
+  renderer.render(scene,camera);
+})();
+</script>
+</body>
+</html>
